@@ -7,9 +7,11 @@ import sys
 import os
 import psutil
 import socket
+
 from colorama import Fore
 from colorama import Style
 from base64 import b64encode
+from pyperclip import copy
 from simple_term_menu import TerminalMenu
 
 here = os.getcwd()
@@ -69,7 +71,7 @@ def get_options():
     parser.add_argument('-lh', '--lhost', dest='LHOST', type=str, help='Server address')
     parser.add_argument('-t', '--target-os', dest='TARGETOS', type=str, choices={"windows","linux"}, help='Target machine operating system')
     parser.add_argument('-d', '--command', dest='TYPE', type=str, help='command')
-    parser.add_argument('-f', '--input-file', dest='INPUTFILE', type=str, help='File to be downloaded')
+    parser.add_argument('-f', '--input-file', dest='INPUTFILE', type=str, help=f"File to be downloaded in local folder (or full path) or {', '.join(files['windows'])} or {', '.join(files['linux'])}")
     parser.add_argument('-o', '--output-file', dest='OUTPUTFILE', type=str, help='File to write on the target machine')
     parser.add_argument('-l', '--list', dest='LIST', action='store_true', help='Print all the commands UberFiles can generate')
     options = parser.parse_args()
@@ -91,6 +93,8 @@ def get_options():
         options.LPORT = menu_with_custom_choice("Port serving the files?", menu_list)
     if not options.INPUTFILE:
         if options.TARGETOS == "windows":
+            menu_list = [f for f in files[options.TARGETOS]]
+        if options.TARGETOS == "linux":
             menu_list = [f for f in files[options.TARGETOS]]
         menu_list += [ f for f in os.listdir(here) if os.path.isfile(os.path.join(here, f))]
         options.INPUTFILE = menu('Which file do you want the target to download?', menu_list)
@@ -171,7 +175,8 @@ if __name__ == '__main__':
         print(Fore.BLUE + Style.BRIGHT + '[' + str(command_index) + '] ' + print_notes + Style.RESET_ALL + print_command + '\n')
     cmdline = f'{sys.argv[0]} --lhost {options.LHOST} --lport {options.LPORT} --target-os {options.TARGETOS} --command {options.TYPE} --input-file {options.INPUTFILE} --output-file {options.OUTPUTFILE}'
     print(Fore.RED + Style.BRIGHT + 'CLI command used\n' + Style.RESET_ALL + cmdline + '\n')
+    copy(commands_dict[options.TYPE][0][1].replace('{LHOST}', options.LHOST).replace('{LPORT}',options.LPORT).replace('{INPUTFILE}',options.INPUTFILE).replace('{OUTPUTFILE}',options.OUTPUTFILE).strip())
     if run_server(options.LHOST, options.LPORT, options.INPUTFILE):
-        print(Fore.GREEN + Style.BRIGHT + "Server running" + Style.RESET_ALL)
+        pass
     else:
         print(Fore.RED + Style.BRIGHT + "Server failed" + Style.RESET_ALL)

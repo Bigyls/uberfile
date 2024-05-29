@@ -3,3 +3,4 @@ colorama
 argparse
 console-menu
 psutil
+pyperclip
