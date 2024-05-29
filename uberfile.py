@@ -16,8 +16,10 @@ here = os.getcwd()
 
 files = {"windows": {
     "nc.exe": "/opt/resources/windows/nc.exe",
+    "winPEASx64.exe": "/opt/resources/windows/winPEAS/winPEASx64.exe",
 }, "linux": {
-    "linpeas.sh", "/opt/resources/linux/linPEAS/linpeas.sh"
+    "linpeas.sh": "/opt/resources/linux/linPEAS/linpeas.sh",
+    "SUIDump.py": "/opt/my-resources/linux/SUIDump.py",
 }}
 
 def menu(title, menu_list):
@@ -88,7 +90,9 @@ def get_options():
         ]
         options.LPORT = menu_with_custom_choice("Port serving the files?", menu_list)
     if not options.INPUTFILE:
-        menu_list = [ f for f in os.listdir(here) if os.path.isfile(os.path.join(here, f)) ]
+        if options.TARGETOS == "windows":
+            menu_list = [f for f in files[options.TARGETOS]]
+        menu_list += [ f for f in os.listdir(here) if os.path.isfile(os.path.join(here, f))]
         options.INPUTFILE = menu('Which file do you want the target to download?', menu_list)
     if not options.OUTPUTFILE:
         menu_list = ['Same filename ({})'.format(options.INPUTFILE)]
@@ -137,9 +141,13 @@ def populate_post_options_commands():
     add_command(commands_dict=windows, type='powershell', notes="Execution policy bypass", command='''https://book.hacktricks.xyz/windows/basic-powershell-for-pentesters#execution-policy''')
 
 def run_server(LHOST, LPORT, INPUTFILE):
+    if INPUTFILE in files[options.TARGETOS]:
+        INPUTFILE  = files[options.TARGETOS][INPUTFILE]
     if not os.path.isabs(INPUTFILE):
         INPUTFILE = os.path.dirname(os.path.abspath(INPUTFILE))
     if os.path.exists(INPUTFILE):
+        if not os.path.isdir(INPUTFILE):
+            INPUTFILE = os.path.dirname(INPUTFILE)
         os.system(f"python3 -m http.server -b {LHOST} -d {INPUTFILE} {LPORT}")
         return True
     else:
