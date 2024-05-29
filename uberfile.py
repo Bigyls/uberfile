@@ -7,6 +7,7 @@ import sys
 import os
 import psutil
 import socket
+import subprocess
 
 from colorama import Fore
 from colorama import Style
@@ -16,13 +17,13 @@ from simple_term_menu import TerminalMenu
 
 here = os.getcwd()
 
-files = {"windows": {
-    "nc.exe": "/opt/resources/windows/nc.exe",
-    "winPEASx64.exe": "/opt/resources/windows/winPEAS/winPEASx64.exe",
-}, "linux": {
-    "linpeas.sh": "/opt/resources/linux/linPEAS/linpeas.sh",
-    "SUIDump.py": "/opt/my-resources/linux/SUIDump.py",
-}}
+# files = {"windows": {
+#     "nc.exe": "/opt/resources/windows/nc.exe",
+#     "winPEASx64.exe": "/opt/resources/windows/winPEAS/winPEASx64.exe",
+# }, "linux": {
+#     "linpeas.sh": "/opt/resources/linux/linPEAS/linpeas.sh",
+#     "SUIDump.py": "/opt/my-resources/linux/SUIDump.py",
+# }}
 
 def menu(title, menu_list):
     menu = TerminalMenu(menu_list, title=title)
@@ -71,7 +72,8 @@ def get_options():
     parser.add_argument('-lh', '--lhost', dest='LHOST', type=str, help='Server address')
     parser.add_argument('-t', '--target-os', dest='TARGETOS', type=str, choices={"windows","linux"}, help='Target machine operating system')
     parser.add_argument('-d', '--command', dest='TYPE', type=str, help='command')
-    parser.add_argument('-f', '--input-file', dest='INPUTFILE', type=str, help=f"File to be downloaded in local folder (or full path) or {', '.join(files['windows'])} or {', '.join(files['linux'])}")
+    parser.add_argument('-D', '--input-folder', default=here, dest='INPUTFOLDER', type=str, help='Folder where file is located')
+    parser.add_argument('-f', '--input-file', dest='INPUTFILE', type=str, help='File to be downloaded in local folder (or full path)')
     parser.add_argument('-o', '--output-file', dest='OUTPUTFILE', type=str, help='File to write on the target machine')
     parser.add_argument('-l', '--list', dest='LIST', action='store_true', help='Print all the commands UberFiles can generate')
     options = parser.parse_args()
@@ -92,12 +94,25 @@ def get_options():
         ]
         options.LPORT = menu_with_custom_choice("Port serving the files?", menu_list)
     if not options.INPUTFILE:
-        if options.TARGETOS == "windows":
-            menu_list = [f for f in files[options.TARGETOS]]
-        if options.TARGETOS == "linux":
-            menu_list = [f for f in files[options.TARGETOS]]
+        menu_list = ["fzf resources", "fzf my-resources", "fzf all"]
+        # if options.TARGETOS == "windows":
+        #     menu_list += [f for f in files[options.TARGETOS]]
+        # if options.TARGETOS == "linux":
+        #     menu_list += [f for f in files[options.TARGETOS]]
         menu_list += [ f for f in os.listdir(here) if os.path.isfile(os.path.join(here, f))]
         options.INPUTFILE = menu('Which file do you want the target to download?', menu_list)
+    if options.INPUTFILE == "fzf resources":
+        fzf_result = subprocess.run("find /opt/resources | fzf", shell=True, stdout=subprocess.PIPE, text=True)
+        options.INPUTFOLDER = os.path.dirname(fzf_result.stdout.strip())
+        options.INPUTFILE = os.path.basename(fzf_result.stdout.strip())
+    if options.INPUTFILE == "fzf my-resources":
+        fzf_result = subprocess.run("find /opt/my-resources | fzf", shell=True, stdout=subprocess.PIPE, text=True)
+        options.INPUTFOLDER = os.path.dirname(fzf_result.stdout.strip())
+        options.INPUTFILE = os.path.basename(fzf_result.stdout.strip())
+    if options.INPUTFILE == "fzf all":
+        fzf_result = subprocess.run("fzf", shell=True, stdout=subprocess.PIPE, text=True)
+        options.INPUTFOLDER = os.path.dirname(fzf_result.stdout.strip())
+        options.INPUTFILE = os.path.basename(fzf_result.stdout.strip())
     if not options.OUTPUTFILE:
         menu_list = ['Same filename ({})'.format(options.INPUTFILE)]
         if options.TARGETOS == "windows":
@@ -145,14 +160,12 @@ def populate_post_options_commands():
     add_command(commands_dict=windows, type='powershell', notes="Execution policy bypass", command='''https://book.hacktricks.xyz/windows/basic-powershell-for-pentesters#execution-policy''')
 
 def run_server(LHOST, LPORT, INPUTFILE):
-    if INPUTFILE in files[options.TARGETOS]:
-        INPUTFILE  = files[options.TARGETOS][INPUTFILE]
+    # if INPUTFILE in files[options.TARGETOS]:
+    #     INPUTFILE  = files[options.TARGETOS][INPUTFILE]
     if not os.path.isabs(INPUTFILE):
         INPUTFILE = os.path.dirname(os.path.abspath(INPUTFILE))
     if os.path.exists(INPUTFILE):
-        if not os.path.isdir(INPUTFILE):
-            INPUTFILE = os.path.dirname(INPUTFILE)
-        os.system(f"python3 -m http.server -b {LHOST} -d {INPUTFILE} {LPORT}")
+        os.system(f"python3 -m http.server -b {LHOST} -d {options.INPUTFOLDER} {LPORT}")
         return True
     else:
         print(Fore.RED + Style.BRIGHT + "Input file not found" + Style.RESET_ALL)
