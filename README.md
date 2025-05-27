@@ -15,25 +15,7 @@ pipx install --system-site-packages git+https://github.com/Bigyls/uberfile
 # Usage
 Usage is dead simple too.
 ```
-usage: uberfile.py [-h] [-lp LPORT] [-lh LHOST] [-t {windows,linux}] [-d TYPE] [-f INPUTFILE] [-o OUTPUTFILE] [-l]
-
-Generate a file downloader command
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -lp LPORT, --lport LPORT
-                        Server port
-  -lh LHOST, --lhost LHOST
-                        Server address
-  -t {windows,linux}, --target-os {windows,linux}
-                        Target machine operating system
-  -d TYPE, --downloader TYPE
-                        Downloader
-  -f INPUTFILE, --input-file INPUTFILE
-                        File to be downloaded
-  -o OUTPUTFILE, --output-file OUTPUTFILE
-                        File to write on the target machine
-  -l, --list            Print all the commands UberFiles can generate
+uberfile
 ```
 If required options are not set, the tool will start in TUI (Terminal User Interface) with pretty menus but CLI works like a charm too.
 
