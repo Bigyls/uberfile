@@ -9,7 +9,7 @@ This project is installed by default in the pentesting OS [Exegol](https://githu
 # Install
 The install is pretty simple, just clone this git and install the requirements.
 ```
-pipx install --system-site-packages git+https://github.com/Bigyls/uberfile
+pipx install --system-site-packages --force git+https://github.com/Bigyls/uberfile
 ```
 
 # Usage
