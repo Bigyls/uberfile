@@ -1,5 +1,14 @@
-simple_term_menu
-colorama
-argparse
-console-menu
-psutil
+# Core dependencies
+colorama>=0.4.6
+simple-term-menu>=1.6.1
+pyperclip>=1.8.2
+psutil>=5.9.0
+
+# Protocol support
+pyOpenSSL>=23.0.0
+cryptography>=41.0.0
+pyftpdlib>=1.5.7
+wsgidav>=4.3.0
+
+# Optional dependencies for additional features
+pysftp>=0.2.9  # For SFTP support

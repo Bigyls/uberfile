@@ -9,9 +9,7 @@ This project is installed by default in the pentesting OS [Exegol](https://githu
 # Install
 The install is pretty simple, just clone this git and install the requirements.
 ```
-git clone https://github.com/ShutdownRepo/uberfile
-cd uberfile
-python3 setup.py install --user
+pipx install --system-site-packages git+https://github.com/Bigyls/uberfile
 ```
 
 # Usage
