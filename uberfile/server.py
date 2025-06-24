@@ -39,20 +39,20 @@ class FileServer:
 
         if not os.path.exists(full_path):
             return False, f"Input file not found: {full_path}"
-        
+
         if not os.path.isfile(full_path):
             return False, f"Path exists but is not a file: {full_path}"
-        
+
         if not os.access(full_path, os.R_OK):
             return False, f"File exists but is not readable: {full_path}"
-        
+
         return True, None
 
     def generate_self_signed_cert(self) -> bool:
         """Generate a self-signed certificate for HTTPS."""
         try:
             os.makedirs(os.path.dirname(self.cert_path), exist_ok=True)
-            
+
             # Generate private key and self-signed certificate
             cmd = [
                 'openssl', 'req', '-x509', '-newkey', 'rsa:4096',
@@ -62,7 +62,7 @@ class FileServer:
                 '-nodes',  # No passphrase
                 '-subj', '/CN=uberfile'
             ]
-            
+
             subprocess.run(cmd, check=True, capture_output=True)
             return True
         except subprocess.CalledProcessError as e:
@@ -75,14 +75,14 @@ class FileServer:
             os.chdir(self.config.directory)
             handler = SimpleHTTPRequestHandler
             server = HTTPServer((self.config.host, self.config.port), handler)
-            
+
             self.logger.info(f"HTTP server started at http://{self.config.host}:{self.config.port}")
             self.logger.info(f"Serving files from: {self.config.directory}")
             self.logger.info("Press Ctrl+C to stop the server")
-            
+
             server.serve_forever()
             return True
-            
+
         except Exception as e:
             self.logger.error(f"HTTP server error: {e}")
             return False
@@ -98,22 +98,22 @@ class FileServer:
             os.chdir(self.config.directory)
             handler = SimpleHTTPRequestHandler
             httpd = HTTPServer((self.config.host, self.config.port), handler)
-            
+
             # Create SSL context
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             context.load_cert_chain(self.cert_path, self.key_path)
-            
+
             # Wrap socket with SSL
             httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
-            
+
             self.logger.info(f"HTTPS server started at https://{self.config.host}:{self.config.port}")
             self.logger.info(f"Serving files from: {self.config.directory}")
             self.logger.info("Using self-signed certificate")
             self.logger.info("Press Ctrl+C to stop the server")
-            
+
             httpd.serve_forever()
             return True
-            
+
         except Exception as e:
             self.logger.error(f"HTTPS server error: {e}")
             return False
@@ -135,21 +135,21 @@ class FileServer:
             from pyftpdlib.authorizers import DummyAuthorizer
             from pyftpdlib.handlers import FTPHandler
             from pyftpdlib.servers import FTPServer
-            
+
             authorizer = DummyAuthorizer()
             authorizer.add_anonymous(self.config.directory, perm="elr")
-            
+
             handler = FTPHandler
             handler.authorizer = authorizer
-            
+
             server = FTPServer((self.config.host, self.config.port), handler)
             self.logger.info(f"FTP server started at ftp://{self.config.host}:{self.config.port}")
             self.logger.info(f"Serving files from: {self.config.directory}")
             self.logger.info("Press Ctrl+C to stop the server")
-            
+
             server.serve_forever()
             return True
-            
+
         except Exception as e:
             self.logger.error(f"FTP server error: {e}")
             return False
@@ -165,14 +165,14 @@ class FileServer:
                 "-username", "uberfile",
                 "-password", "exegol4thewin"
             ]
-            
+
             self.logger.info(f"SMB server started at smb://{self.config.host}")
             self.logger.info(f"Serving files from: {self.config.directory}")
             self.logger.info("Share name: EXEGOL")
             self.logger.info("Username: uberfile")
             self.logger.info("Password: exegol4thewin")
             self.logger.info("Press Ctrl+C to stop the server")
-            
+
             process = subprocess.Popen(cmd)
             try:
                 process.wait()
@@ -180,7 +180,7 @@ class FileServer:
             except KeyboardInterrupt:
                 process.terminate()
                 return True
-                
+
         except Exception as e:
             self.logger.error(f"SMB server error: {e}")
             return False
@@ -215,26 +215,26 @@ class FileServer:
             from pyftpdlib.authorizers import DummyAuthorizer
             from pyftpdlib.handlers import TLS_FTPHandler
             from pyftpdlib.servers import FTPServer
-            
+
             authorizer = DummyAuthorizer()
             authorizer.add_anonymous(self.config.directory, perm="elr")
-            
+
             handler = TLS_FTPHandler
             handler.certfile = self.cert_path
             handler.keyfile = self.key_path
             handler.authorizer = authorizer
             handler.tls_control_required = True
             handler.tls_data_required = True
-            
+
             server = FTPServer((self.config.host, self.config.port), handler)
             self.logger.info(f"FTPS server started at ftps://{self.config.host}:{self.config.port}")
             self.logger.info(f"Serving files from: {self.config.directory}")
             self.logger.info("Using SSL/TLS encryption")
             self.logger.info("Press Ctrl+C to stop the server")
-            
+
             server.serve_forever()
             return True
-            
+
         except Exception as e:
             self.logger.error(f"FTPS server error: {e}")
             return False
@@ -252,39 +252,39 @@ class FileServer:
             from wsgidav.wsgidav_app import WsgiDAVApp
             from wsgidav.fs_dav_provider import FilesystemProvider
             from wsgidav.server.server_cli import run_server
-            
+
             provider = FilesystemProvider(self.config.directory)
-            
+
             config = {
                 "host": self.config.host,
                 "port": self.config.port,
                 "provider_mapping": {"/": provider},
                 "verbose": 1,
             }
-            
+
             if self.config.protocol.upper() == 'WEBDAVS':
                 config.update({
                     "ssl_certificate": self.cert_path,
                     "ssl_private_key": self.key_path,
                 })
-                
+
                 # Generate certificate if needed
                 if not (os.path.exists(self.cert_path) and os.path.exists(self.key_path)):
                     if not self.generate_self_signed_cert():
                         return False
 
             app = WsgiDAVApp(config)
-            
+
             protocol = "https" if self.config.protocol.upper() == 'WEBDAVS' else "http"
             self.logger.info(f"WebDAV server started at {protocol}://{self.config.host}:{self.config.port}")
             self.logger.info(f"Serving files from: {self.config.directory}")
             if self.config.protocol.upper() == 'WEBDAVS':
                 self.logger.info("Using SSL/TLS encryption")
             self.logger.info("Press Ctrl+C to stop the server")
-            
+
             run_server(app, config)
             return True
-            
+
         except Exception as e:
             self.logger.error(f"WebDAV server error: {e}")
             return False
@@ -319,4 +319,4 @@ class FileServer:
             return True
         except Exception as e:
             self.logger.error(f"Server error: {e}")
-            return False 
+            return False

@@ -47,7 +47,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument('-p', '--protocol', dest='PROTOCOL', type=str,
                       choices={'HTTP', 'HTTPS', 'FTP', 'SMB', 'SCP'},
                       help='Transfer protocol to use')
-    
+
     return parser.parse_args()
 
 
@@ -63,37 +63,41 @@ def list_commands(registry) -> None:
     sys.exit(0)
 
 
-def main():
-    """Main entry point."""
-    setup_logging()
-    logger = logging.getLogger(__name__)
-    
-    # Parse command line arguments
-    options = parse_arguments()
-    
-    # Create command registry
-    registry = create_default_registry()
-    
-    # List commands if requested
-    if options.LIST:
-        list_commands(registry)
-    
-    # Create user interface
-    ui = UserInterface()
-    
-    # Get target OS
-    target_os = options.TARGETOS or ui.select_os()
-    
-    # Get server address
-    lhost = options.LHOST or ui.select_interface()
-    
-    # Get transfer protocol
-    protocol = options.PROTOCOL or ui.select_protocol()
-    
-    # Get server port (after protocol selection)
-    lport = options.LPORT or ui.select_port(protocol)
-    
-    # Get command type
+def is_elf_or_shell(filepath: str) -> bool:
+    """Check if a file is an ELF binary or a shell script."""
+    try:
+        with open(filepath, 'rb') as f:
+            start = f.read(4)
+            if start == b'\x7fELF':
+                return True
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            first_line = f.readline()
+            if first_line.startswith("#!"):
+                return True
+        if filepath.endswith('.sh'):
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def get_target_os(options, ui):
+    return options.TARGETOS or ui.select_os()
+
+
+def get_lhost(options, ui):
+    return options.LHOST or ui.select_interface()
+
+
+def get_protocol(options, ui):
+    return options.PROTOCOL or ui.select_protocol()
+
+
+def get_lport(options, ui, protocol):
+    return options.LPORT or ui.select_port(protocol)
+
+
+def get_command_type(options, registry, target_os, protocol, ui, logger):
     command_type = options.TYPE
     if not command_type:
         available_types = registry.get_command_types(target_os, protocol)
@@ -101,18 +105,50 @@ def main():
             logger.error(f"No commands available for {protocol} protocol on {target_os}")
             sys.exit(1)
         command_type = ui.select_command_type(available_types)
-    
-    # Get input file
-    input_file = options.INPUTFILE
-    if not input_file:
-        input_file = ui.select_file(options.INPUTFOLDER)
-    
-    # Get output file
-    output_file = options.OUTPUTFILE
-    if not output_file:
-        output_file = ui.select_output_file(os.path.basename(input_file), target_os)
-    
-    # Create command context
+    return command_type
+
+
+def get_input_file(options, ui):
+    return options.INPUTFILE or ui.select_file(options.INPUTFOLDER)
+
+
+def get_output_file(options, input_file, target_os, ui):
+    return options.OUTPUTFILE or ui.select_output_file(os.path.basename(input_file), target_os)
+
+
+def generate_command_tuples(commands, context, target_os, input_file, output_file):
+    command_tuples = []
+    needs_chmod = False
+    if target_os == 'linux' and os.path.isfile(input_file):
+        needs_chmod = is_elf_or_shell(input_file)
+    for cmd in commands:
+        command = cmd.generate(context)
+        if target_os == 'linux' and needs_chmod:
+            command = f"{command}; chmod +x {output_file}"
+        command_tuples.append((cmd.notes, command))
+    return command_tuples
+
+
+def main():
+    """Main entry point."""
+    setup_logging()
+    logger = logging.getLogger(__name__)
+
+    options = parse_arguments()
+    registry = create_default_registry()
+
+    if options.LIST:
+        list_commands(registry)
+
+    ui = UserInterface()
+    target_os = get_target_os(options, ui)
+    lhost = get_lhost(options, ui)
+    protocol = get_protocol(options, ui)
+    lport = get_lport(options, ui, protocol)
+    command_type = get_command_type(options, registry, target_os, protocol, ui, logger)
+    input_file = get_input_file(options, ui)
+    output_file = get_output_file(options, input_file, target_os, ui)
+
     context = CommandContext(
         lhost=lhost,
         lport=lport,
@@ -120,34 +156,21 @@ def main():
         output_file=output_file,
         protocol=protocol
     )
-    
-    # Get commands for the selected type
+
     commands = registry.get_commands(target_os, command_type, protocol)
     if not commands:
         logger.error(f"No commands found for type: {command_type} with protocol: {protocol}")
         sys.exit(1)
-    
-    # Generate command line string
+
     cmdline = (f'{sys.argv[0]} --lhost {lhost} --lport {lport} '
-              f'--target-os {target_os} --command {command_type} '
-              f'--input-file {input_file} --output-file {output_file} '
-              f'--protocol {protocol}')
-    
-    # Generate commands and add chmod +x for shell scripts if needed
-    command_tuples = []
-    for cmd in commands:
-        command = cmd.generate(context)
-        if target_os == 'linux' and output_file.endswith('.sh'):
-            command = f"{command}; chmod +x {output_file}"
-        command_tuples.append((cmd.notes, command))
-    
-    # Display commands
+               f'--target-os {target_os} --command {command_type} '
+               f'--input-file {input_file} --output-file {output_file} '
+               f'--protocol {protocol}')
+
+    command_tuples = generate_command_tuples(commands, context, target_os, input_file, output_file)
     ui.display_commands(command_tuples, cmdline)
-    
-    # Copy first command to clipboard
     copy(command_tuples[0][1])
-    
-    # Start the server
+
     server_config = ServerConfig(
         host=lhost,
         port=int(lport),
@@ -155,11 +178,11 @@ def main():
         input_file=input_file,
         protocol=protocol
     )
-    
+
     server = FileServer(server_config)
     if not server.serve():
         sys.exit(1)
 
 
 if __name__ == '__main__':
-    main() 
+    main()

