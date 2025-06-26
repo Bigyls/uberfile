@@ -96,11 +96,11 @@ class UserInterface:
 
         if selected.startswith("fzf"):
             if selected == "fzf resources":
-                cmd = "find /opt/resources | fzf"
+                cmd = "/usr/bin/find /opt/resources -type f 2>/dev/null | fzf"
             elif selected == "fzf my-resources":
-                cmd = "find /opt/my-resources | fzf"
+                cmd = "/usr/bin/find /opt/my-resources -type f 2>/dev/null | fzf"
             else:
-                cmd = "fzf"
+                cmd = "/usr/bin/find / -type f 2>/dev/null | fzf"
 
             try:
                 result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, text=True)
